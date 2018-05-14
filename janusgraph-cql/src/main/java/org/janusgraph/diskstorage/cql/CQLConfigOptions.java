@@ -186,6 +186,15 @@ public interface CQLConfigOptions {
             ConfigOption.Type.FIXED,
             256);
 
+    // Whether to cache keys-only (default), rows-only, all or none.
+    ConfigOption<String> CACHING = new ConfigOption<>(
+            CQL_NS,
+            "caching",
+            "The caching value JanusGraph uses when creating tables." +
+                "This can be keys (default), rows, all or none.",
+            ConfigOption.Type.FIXED,
+            "keys");
+
     // SSL
     ConfigNamespace SSL_NS = new ConfigNamespace(
             CQL_NS,

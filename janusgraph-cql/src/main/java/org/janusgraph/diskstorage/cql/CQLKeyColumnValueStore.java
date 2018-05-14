@@ -34,10 +34,16 @@ import static com.datastax.driver.core.schemabuilder.SchemaBuilder.lz4;
 import static com.datastax.driver.core.schemabuilder.SchemaBuilder.noCompression;
 import static com.datastax.driver.core.schemabuilder.SchemaBuilder.sizedTieredStategy;
 import static com.datastax.driver.core.schemabuilder.SchemaBuilder.snappy;
+import static com.datastax.driver.core.schemabuilder.SchemaBuilder.Caching;
+import static com.datastax.driver.core.schemabuilder.SchemaBuilder.Caching.ALL;
+import static com.datastax.driver.core.schemabuilder.SchemaBuilder.Caching.KEYS_ONLY;
+import static com.datastax.driver.core.schemabuilder.SchemaBuilder.Caching.ROWS_ONLY;
+import static com.datastax.driver.core.schemabuilder.SchemaBuilder.Caching.NONE;
 import static io.vavr.API.$;
 import static io.vavr.API.Case;
 import static io.vavr.API.Match;
 import static io.vavr.Predicates.instanceOf;
+import static org.janusgraph.diskstorage.cql.CQLConfigOptions.CACHING;
 import static org.janusgraph.diskstorage.cql.CQLConfigOptions.CF_COMPRESSION;
 import static org.janusgraph.diskstorage.cql.CQLConfigOptions.CF_COMPRESSION_BLOCK_SIZE;
 import static org.janusgraph.diskstorage.cql.CQLConfigOptions.CF_COMPRESSION_TYPE;
@@ -220,6 +226,7 @@ public class CQLKeyColumnValueStore implements KeyColumnValueStore {
                 .withOptions()
                 .compressionOptions(compressionOptions(configuration))
                 .compactionOptions(compactionOptions(configuration))
+                .caching(caching(configuration))
                 .compactStorage());
     }
 
@@ -250,6 +257,14 @@ public class CQLKeyColumnValueStore implements KeyColumnValueStore {
                 .grouped(2)
                 .forEach(keyValue -> compactionOptions.freeformOption(keyValue.get(0), keyValue.get(1)));
         return compactionOptions;
+    }
+
+    private static Caching caching(final Configuration configuration) {
+        return Match(configuration.get(CACHING)).of(
+                Case($("keys"), KEYS_ONLY),
+                Case($("rows"), ROWS_ONLY),
+                Case($("all"), ALL),
+                Case($("none"), NONE));
     }
 
     @Override
