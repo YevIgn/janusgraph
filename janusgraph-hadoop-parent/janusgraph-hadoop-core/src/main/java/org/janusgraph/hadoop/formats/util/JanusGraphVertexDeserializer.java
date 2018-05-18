@@ -28,7 +28,6 @@ import org.janusgraph.hadoop.formats.util.input.SystemTypeInspector;
 import org.janusgraph.hadoop.formats.util.input.JanusGraphHadoopSetup;
 import org.apache.tinkerpop.gremlin.structure.T;
 import org.apache.tinkerpop.gremlin.structure.Direction;
-import org.apache.tinkerpop.gremlin.structure.Vertex;
 import org.apache.tinkerpop.gremlin.structure.VertexProperty;
 import org.apache.tinkerpop.gremlin.tinkergraph.structure.TinkerEdge;
 import org.apache.tinkerpop.gremlin.tinkergraph.structure.TinkerGraph;
@@ -36,8 +35,9 @@ import org.apache.tinkerpop.gremlin.tinkergraph.structure.TinkerVertex;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.Iterator;
+import java.util.HashSet;
 import java.util.NoSuchElementException;
+import java.util.Set;
 
 public class JanusGraphVertexDeserializer implements AutoCloseable {
 
@@ -54,20 +54,6 @@ public class JanusGraphVertexDeserializer implements AutoCloseable {
         this.typeManager = setup.getTypeInspector();
         this.systemTypes = setup.getSystemTypeInspector();
         this.idManager = setup.getIDManager();
-    }
-
-    private static Boolean isLoopAdded(Vertex vertex, String label) {
-        Iterator<Vertex> adjacentVertices = vertex.vertices(Direction.BOTH, label);
-
-        while (adjacentVertices.hasNext()) {
-            Vertex adjacentVertex = adjacentVertices.next();
-
-            if(adjacentVertex.equals(vertex)){
-                return true;
-            }
-        }
-
-        return false;
     }
 
     // Read a single row from the edgestore and create a TinkerVertex corresponding to the row
@@ -111,6 +97,8 @@ public class JanusGraphVertexDeserializer implements AutoCloseable {
 
         Preconditions.checkState(null != tv, "Unable to determine vertex label for vertex with ID %s", vertexId);
 
+        Set<Long> incidentSelfLoopingEdgeTypes = new HashSet<>();
+
         // Iterate over and decode edgestore columns (relations) on this vertex
         for (final Entry data : entries) {
             try {
@@ -149,8 +137,11 @@ public class JanusGraphVertexDeserializer implements AutoCloseable {
                     TinkerVertex adjacentVertex = getOrCreateVertex(relation.getOtherVertexId(), null, tg);
 
                     // handle self-loop edges
-                    if (tv.equals(adjacentVertex) && isLoopAdded(tv, type.name())) {
-                        continue;
+                    if (tv.equals(adjacentVertex)) {
+                        if (incidentSelfLoopingEdgeTypes.contains(relation.typeId)) {
+                            continue;
+                        }
+                        incidentSelfLoopingEdgeTypes.add(relation.typeId);
                     }
 
                     if (relation.direction.equals(Direction.IN)) {
